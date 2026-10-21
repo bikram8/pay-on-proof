@@ -54,10 +54,15 @@ class Milestone(Base):
     worker_email: Mapped[str] = mapped_column(String(200))  # sandbox PayPal email of the worker
     starts_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    # PENDING -> VERIFYING -> APPROVED/HUMAN_REVIEW/REJECTED -> CAPTURED -> PAID_OUT
+    # PENDING -> APPROVED/HUMAN_REVIEW/REJECTED -> CAPTURED -> PAID_OUT
     status: Mapped[str] = mapped_column(String(20), default="PENDING")
     paypal_capture_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     paypal_payout_batch_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # PAID_OUT means PayPal accepted the payout. Whether the worker actually received it is
+    # PayPal's item status (PENDING, SUCCESS, UNCLAIMED, FAILED, RETURNED, ...), updated by
+    # webhooks or by polling the payout batch.
+    payout_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    paypal_payout_item_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     project: Mapped[Project] = relationship(back_populates="milestones")
     submissions: Mapped[list["Submission"]] = relationship(back_populates="milestone")

@@ -110,13 +110,18 @@ def get_order(order_id: str) -> dict:
 
 
 def authorize_order(order_id: str) -> dict:
-    """After the funder approves an AUTHORIZE order. Returns the order with the authorization id."""
-    return _request("POST", f"/v2/checkout/orders/{order_id}/authorize", json={})
+    """After the funder approves an AUTHORIZE order. Returns the order with the authorization id.
+
+    Fixed idempotency key: if the return page is loaded twice, PayPal replays the first result.
+    """
+    return _request("POST", f"/v2/checkout/orders/{order_id}/authorize", json={},
+                    idempotency_key=f"authorize-{order_id}")
 
 
 def capture_order(order_id: str) -> dict:
     """After the funder approves a CAPTURE order (ESCROW_PAYOUT mode)."""
-    return _request("POST", f"/v2/checkout/orders/{order_id}/capture", json={})
+    return _request("POST", f"/v2/checkout/orders/{order_id}/capture", json={},
+                    idempotency_key=f"capture-{order_id}")
 
 
 # ---------- Authorizations: release held money milestone by milestone ----------
@@ -175,7 +180,9 @@ def send_payout(receiver_email: str, amount: float, sender_item_id: str, note: s
             "sender_item_id": sender_item_id,
         }],
     }
-    return _request("POST", "/v1/payments/payouts", json=body)
+    # Same key on retry: if the first attempt reached PayPal but we never saw the reply,
+    # PayPal returns the original batch instead of rejecting the reused sender_batch_id.
+    return _request("POST", "/v1/payments/payouts", json=body, idempotency_key=f"payout-{sender_item_id}")
 
 
 def get_payout_batch(batch_id: str) -> dict:

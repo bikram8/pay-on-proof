@@ -1,0 +1,43 @@
+# Render Blueprint: Dashboard > New > Blueprint > pick this repo.
+# One free web service running the Dockerfile (API under /api + dashboard).
+# Free plan: sleeps after ~15 min idle, and the SQLite database and uploads reset when it does.
+services:
+  - type: web
+    name: pay-on-proof
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Asked for when the Blueprint is created (never committed):
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Vision model: set GEMINI_API_KEY (free tier) and/or ANTHROPIC_API_KEY (Claude preferred if set).
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
+      - key: GEMINI_FALLBACK_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_THINKING
+        value: low
+      # Optional: from the PayPal app's webhook pointing at https://<service>/api/webhooks/paypal
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      # Generated once by Render and kept across deploys, so worker links stay valid.
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: CURRENCY
+        value: USD
+      - key: VISION_MODEL
+        value: claude-opus-5-5
+      # PUBLIC_BASE_URL and FRONTEND_URL default to Render's RENDER_EXTERNAL_URL.
