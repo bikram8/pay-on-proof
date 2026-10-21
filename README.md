@@ -64,6 +64,7 @@ Design choices:
 - **Prompt-injection defence.** The system prompt treats all text in the photo as untrusted evidence; instruction-like text is reported and turns into a hard reject.
 - **Fail-safe.** Any failure (no key, timeout, free-tier rate limit, safety block, unreadable output) routes the photo to a human instead of approving it. With Claude, server-side refusal fallback is enabled so a false-positive safety decline retries on another model.
 - **Workers can't tune forgeries.** Scores and reasons are shown only to the admin; workers get a plain status message.
+- **Privacy.** Only the downscaled image (no EXIF) and the milestone text are sent to the model. On Gemini's free tier, Google may use submitted content to improve its products, so the demo is meant for test photos, not real people's private images.
 
 The AI never calls PayPal. Policy rules (auto-payout cap, milestone order, no double payment) apply no matter what the AI decides. A milestone's clock restarts when the previous one is paid, so proof must be newer than the last payout.
 
@@ -82,6 +83,8 @@ If PayPal fails part-way, the milestone stays in `APPROVED` (nothing moved) or `
 | AI-generated / edited / stock photo | The AI's `signs_of_editing_or_ai` lowers the score | ✅ |
 | Photo of a screen or printout | The AI flags it; blocks auto-approval | ✅ |
 
+Try them yourself with the images and steps in [demo_attacks/](demo_attacks/).
+
 ## How PayPal is used (sandbox)
 | API | Where | What for |
 |---|---|---|
@@ -93,6 +96,19 @@ If PayPal fails part-way, the milestone stays in `APPROVED` (nothing moved) or `
 | Webhooks: verify signature | `verify_webhook` | Authenticate incoming PayPal events (logged to the audit trail) |
 
 Every money call is idempotent (`PayPal-Request-Id` per milestone), so retries never pay twice. All code is in [backend/app/paypal.py](backend/app/paypal.py).
+
+## Built with
+| Tool | Role |
+|---|---|
+| **PayPal Developer Platform** (sandbox) | Orders, Payments, Payouts and Webhooks APIs: escrow, release and payout (see above) |
+| **Google Gemini API** | Visual review of proof photos (free tier) |
+| **Anthropic Claude API** | Optional alternative vision model |
+| **AG Grid** (sponsor, Community edition) | Projects table and the searchable audit/activity log in the dashboard ([Projects.jsx](frontend/src/pages/Projects.jsx), [Activity.jsx](frontend/src/pages/Activity.jsx)) |
+| **Render** (sponsor) | Hosting: one free Docker web service from the [render.yaml](render.yaml) Blueprint |
+| FastAPI, SQLAlchemy, SQLite | Backend API and storage |
+| React, Vite | Dashboard and worker upload page |
+| Pillow, ImageHash, ExifRead | Image handling, duplicate detection, photo metadata |
+| pytest | 80+ tests with faked PayPal and AI clients |
 
 ## Run it locally
 
@@ -141,9 +157,9 @@ PayPal is faked in the tests, so they need no credentials or network.
 
 ### 5. Deploy (Render, free plan)
 The repo includes a [Dockerfile](Dockerfile) (builds the dashboard, serves it and the API from one URL, API under `/api`) and a [render.yaml](render.yaml) Blueprint.
-1. Push the repo to GitHub.
+1. Push the repo to GitHub (or fork this one).
 2. On [render.com](https://render.com): **New → Blueprint**, pick the repo.
-3. Enter `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `ADMIN_PASSWORD` and `ANTHROPIC_API_KEY` when asked. `SECRET_KEY` is generated; the PayPal return URL is derived from the service URL automatically.
+3. Enter `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `ADMIN_PASSWORD` and `GEMINI_API_KEY` when asked; leave `ANTHROPIC_API_KEY` and `PAYPAL_WEBHOOK_ID` empty unless you use them. `SECRET_KEY` is generated; the PayPal return URL is derived from the service URL automatically.
 
 On the free plan the service sleeps after ~15 minutes idle (the next visit takes about a minute) and its SQLite data resets, so each demo session starts clean.
 
@@ -170,7 +186,9 @@ backend/
   scripts/       checkpoint scripts
   tests/         pytest suite (fake PayPal)
 frontend/        React + AG Grid admin dashboard and worker upload page
-demo_attacks/    test photos for the demo
+demo_attacks/    attack images and how to reproduce each attack
+Dockerfile       one image: dashboard + API
+render.yaml      Render Blueprint (free plan)
 ```
 
 ## License
